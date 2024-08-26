@@ -36,6 +36,7 @@
 #include "cellular_api.h"
 #include "cellular_common.h"
 #include "cellular_common_api.h"
+#include "cellular_bg96_api.h"
 
 /*-----------------------------------------------------------*/
 
@@ -104,36 +105,6 @@ CellularError_t Cellular_ATCommandRaw( CellularHandle_t cellularHandle,
 {
     return Cellular_CommonATCommandRaw( cellularHandle, pATCommandPrefix, pATCommandPayload, atCommandType,
                                         responseReceivedCallback, pData, dataLen );
-}
-
-/*-----------------------------------------------------------*/
-
-/* FreeRTOS Cellular Library API. */
-/* coverity[misra_c_2012_rule_8_7_violation] */
-CellularError_t Cellular_CreateSocket( CellularHandle_t cellularHandle,
-                                       uint8_t pdnContextId,
-                                       CellularSocketDomain_t socketDomain,
-                                       CellularSocketType_t socketType,
-                                       CellularSocketProtocol_t socketProtocol,
-                                       CellularSocketHandle_t * pSocketHandle )
-{
-    return Cellular_CommonCreateSocket( cellularHandle, pdnContextId, socketDomain, socketType,
-                                        socketProtocol, pSocketHandle );
-}
-
-/*-----------------------------------------------------------*/
-
-/* FreeRTOS Cellular Library API. */
-/* coverity[misra_c_2012_rule_8_7_violation] */
-CellularError_t Cellular_SocketSetSockOpt( CellularHandle_t cellularHandle,
-                                           CellularSocketHandle_t socketHandle,
-                                           CellularSocketOptionLevel_t optionLevel,
-                                           CellularSocketOption_t option,
-                                           const uint8_t * pOptionValue,
-                                           uint32_t optionValueLength )
-{
-    return Cellular_CommonSocketSetSockOpt( cellularHandle, socketHandle, optionLevel, option,
-                                            pOptionValue, optionValueLength );
 }
 
 /*-----------------------------------------------------------*/
