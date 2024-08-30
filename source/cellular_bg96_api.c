@@ -3751,7 +3751,7 @@ CellularError_t Cellular_ConfigureSSLContext( CellularHandle_t cellularHandle,
     return cellularStatus;
 }
 
-static
+//TODO: Need to clean up the MQTT section - double check which AT calls are being used etc.
 
 CellularError_t Cellular_MqttConfigureGeneric(CellularHandle_t cellularHandle,
         uint8_t mqttContextId,
