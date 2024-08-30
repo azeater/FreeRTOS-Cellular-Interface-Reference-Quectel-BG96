@@ -19,6 +19,17 @@ typedef struct CellularSocketSslConfig
     uint8_t sslContextId;
 } CellularSocketSslConfig_t;
 
+typedef struct CellularMqttConfig
+{
+    uint8_t mqttContextId;
+    uint8_t sslContextId;
+} CellularMqttConfig_t;
+
+typedef struct CellularMqttHandle
+{
+
+} CellularMqttHandle_t;
+
 /* Upload credential to the file system. Later it can be used to configure the secure socket context. */
 CellularError_t Cellular_UploadFileToStorage( CellularHandle_t cellularHandle,
                                               const char* filename,

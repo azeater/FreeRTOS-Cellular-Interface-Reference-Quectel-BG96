@@ -3750,3 +3750,529 @@ CellularError_t Cellular_ConfigureSSLContext( CellularHandle_t cellularHandle,
 
     return cellularStatus;
 }
+
+static
+
+CellularError_t Cellular_MqttConfigureGeneric(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        const char* mqttConfigurationParameter,
+        const char* inputArg,
+        bool isNumeric)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        if (isNumeric)
+        {
+            ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"%s\",%d,%s",
+                    mqttConfigurationParameter, mqttContextId, inputArg);
+        }
+        else
+        {
+            ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"%s\",%d,\"%s\"",
+                    mqttConfigurationParameter, mqttContextId, inputArg);
+        }
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttConfigureSsl(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        bool enable_ssl,
+        uint8_t sslContextId)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"ssl\",%d,%d,%d",
+                mqttContextId, (uint8_t)enable_ssl, sslContextId);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttConfigureTimeout(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        uint8_t packet_timeout,
+        uint8_t max_retry_attempts,
+        bool report_timeout)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"timeout\",%d,%d,%d,%d",
+                mqttContextId, packet_timeout, max_retry_attempts, (uint8_t)report_timeout);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttConfigureWill(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        bool will_flag_required,
+        uint8_t will_qos,
+        bool retain_will_message,
+        const char* mqttConfigurationParameter,
+        const char* inputArg,
+        bool isNumeric)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(atCommandBuffer, 4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"will\",%d,%d,%d,%d,\"%s\",\"%s\"",
+                mqttConfigurationParameter, mqttContextId, inputArg);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttConfigureReceiveMode(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        bool message_not_in_urc,
+        bool message_length_in_urc)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"recv/mode\",%d,%d,%d",
+                mqttContextId, (uint8_t)message_not_in_urc, (uint8_t)message_length_in_urc);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttOpen(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        const char * endpoint,
+        uint16_t port)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ 3*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MQTTOpen: _Cellular_CheckLibraryStatus failed." ) );
+    }
+    else if( endpoint == NULL )
+    {
+        LogError( ( "Cellular_MQTTOpen: Null endpoint address." ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, 3*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTOPEN=%d,\"%s\",%d",
+                mqttContextId, endpoint, port);
+
+        pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqNoResponse,
+                                                               SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS );
+
+        if( pktStatus != CELLULAR_PKT_STATUS_OK )
+        {
+            LogError( ( "Cellular_MQTTOpen: MQTT open failed, cmdBuf:%s, PktRet: %d", cmdBuf, pktStatus ) );
+            cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+        }
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttClose(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MQTTClose: _Cellular_CheckLibraryStatus failed." ) );
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCLOSE=%d", mqttContextId);
+        pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqNoResponse, SOCKET_DISCONNECT_PACKET_REQ_TIMEOUT_MS );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+CellularError_t Cellular_MqttConnect(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        const char * clientId)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ 2*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MQTTConnect: _Cellular_CheckLibraryStatus failed." ) );
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCONN=%d,\"%s\"", mqttContextId, clientId);
+        pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqNoResponse, SOCKET_CONNECT_PACKET_REQ_TIMEOUT_MS );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+CellularError_t Cellular_MqttDisconnect(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MQTTDisconnect: _Cellular_CheckLibraryStatus failed." ) );
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTDISC=%d", mqttContextId);
+        pktStatus = _Cellular_TimeoutAtcmdRequestWithCallback( pContext, atReqNoResponse, SOCKET_DISCONNECT_PACKET_REQ_TIMEOUT_MS );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+#define CELLULAR_MQTT_MAX_SEND_DATA_LEN (1560U)
+
+CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
+                                     uint8_t mqttContextId,
+                                     uint16_t messageId,
+                                     uint8_t qos,
+                                     bool retain,
+                                     const char * topic,
+                                     const char * message,
+                                     uint32_t messageLength,
+                                     /* coverity[misra_c_2012_rule_8_13_violation] */
+                                     uint32_t * sentDataLength )
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    uint32_t sendTimeout = DATA_SEND_TIMEOUT_MS;
+    char cmdBuf[ 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqSocketSend =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+    CellularAtDataReq_t atDataReqMqttPublish =
+    {
+        message,
+        messageLength,
+        sentDataLength,
+        NULL,
+        0
+    };
+
+    /* pContext is checked in _Cellular_CheckLibraryStatus function. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "_Cellular_CheckLibraryStatus failed." ) );
+    }
+    else if( ( message == NULL ) || ( sentDataLength == NULL ) || ( messageLength == 0U ) )
+    {
+        LogError( ( "Cellular_MqttPublish: Invalid parameter." ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    else
+    {
+        /* Send data length check. */
+        if( messageLength > ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN )
+        {
+            atDataReqMqttPublish.dataLen = ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN;
+        }
+
+        /* Check send timeout. If not set by setsockopt, use default value. */
+//        if( socketHandle->sendTimeoutMs != 0U )
+//        {
+//            sendTimeout = socketHandle->sendTimeoutMs;
+//        }
+
+        /* Form the AT command. */
+
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf( cmdBuf, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%ld,%d,%d,\"%s\",%d",
+                           "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
+        pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
+                                             socketSendDataPrefix, NULL,
+                                             PACKET_REQ_TIMEOUT_MS, sendTimeout, 0U );
+
+        if( pktStatus != CELLULAR_PKT_STATUS_OK )
+        {
+            LogError( ( "Cellular_MqttPublish: Data send fail, PktRet: %d", pktStatus ) );
+            cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+        }
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttSubscribe(CellularHandle_t cellularHandle,
+                                       uint8_t mqttContextId,
+                                       uint16_t messageId,
+                                       const char * topic,
+                                       uint8_t qos)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ 2*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MqttSubscribe: _Cellular_CheckLibraryStatus failed." ) );
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTSUB=%d,%d,\"%s\",%d", mqttContextId, messageId, topic, qos);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqNoResponse );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+CellularError_t Cellular_MqttUnsubscribe(CellularHandle_t cellularHandle,
+                                         uint8_t mqttContextId,
+                                         uint16_t messageId,
+                                         const char * topic)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ 2*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    CellularAtReq_t atReqNoResponse =
+    {
+        cmdBuf,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    /* Make sure the library is open. */
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "Cellular_MqttUnsubscribe: _Cellular_CheckLibraryStatus failed." ) );
+    }
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+        * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(cmdBuf, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTUNS=%d,%d,\"%s\"", mqttContextId, messageId, topic);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqNoResponse );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
