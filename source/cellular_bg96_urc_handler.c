@@ -1451,6 +1451,7 @@ static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
                     status = (uint8_t)tempValue;
+                    mqttContext->mqttState = MQTTSTATE_DISCONNECTED;
                     mqttContext->stateCallback(status, mqttContext, mqttContext->stateCallbackContext);
                 }
             }

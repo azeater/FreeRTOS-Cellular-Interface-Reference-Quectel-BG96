@@ -382,6 +382,7 @@ CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t*
                 cellularBg96Context.moduleMqttSockets[i].receiveCallback     = NULL;
                 cellularBg96Context.moduleMqttSockets[i].stateCallback       = NULL;
                 *pMqttIndex = i;
+                break;
             }
             else
             {

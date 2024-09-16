@@ -4112,7 +4112,7 @@ CellularError_t Cellular_MqttDisconnect(CellularHandle_t cellularHandle,
     return cellularStatus;
 }
 
-#define CELLULAR_MQTT_MAX_SEND_DATA_LEN (1560U) //According to later version of manual can be 4096
+#define CELLULAR_MQTT_MAX_SEND_DATA_LEN (4096U) //According to later version of manual can be 4096
 
 CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
                                      uint8_t mqttContextId,
