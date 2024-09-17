@@ -138,7 +138,7 @@ typedef struct cellularModuleContext
 CellularPktStatus_t _Cellular_ParseSimstat( char * pInputStr,
                                             CellularSimCardState_t * pSimState );
 
-CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t* pMqttIndex);
+CellularError_t Cellular_CreateMqttContext( CellularContext_t * pContext, int8_t* pMqttIndex);
 
 CellularMqttSocketContext_t * Cellular_GetMqttContext( uint8_t mqttIndex );
 

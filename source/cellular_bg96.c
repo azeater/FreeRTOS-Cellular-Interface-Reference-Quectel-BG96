@@ -357,7 +357,7 @@ CellularError_t Cellular_ModuleEnableUrc( CellularContext_t * pContext )
 
 /*-----------------------------------------------------------*/
 
-CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t* pMqttIndex)
+CellularError_t Cellular_CreateMqttContext( CellularContext_t * pContext, int8_t* pMqttIndex)
 {
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
 
@@ -406,7 +406,7 @@ CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t*
 CellularMqttSocketContext_t * Cellular_GetMqttContext( uint8_t mqttIndex )
 {
     CellularMqttSocketContext_t * context = NULL;
-    if (mqttIndex > 0 && mqttIndex < CELLULAR_NUM_SOCKET_MAX)
+    if (mqttIndex >= 0 && mqttIndex < CELLULAR_NUM_SOCKET_MAX)
     {
         context = &cellularBg96Context.moduleMqttSockets[mqttIndex];
     }
