@@ -1535,12 +1535,7 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
                 if ( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
                     topic = pToken;
-                    atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
-                }
-
-                if ( atCoreStatus == CELLULAR_AT_SUCCESS )
-                {
-                    payload = pToken;
+                    payload = pUrcStr;
                     mqttContext->receiveCallback(topic, payload, mqttContext, mqttContext->receiveCallbackContext);
                 }
             }
