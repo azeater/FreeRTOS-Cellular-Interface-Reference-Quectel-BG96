@@ -4129,7 +4129,7 @@ CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     uint32_t sendTimeout = DATA_SEND_TIMEOUT_MS;
-    char cmdBuf[ 4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
+    char cmdBuf[ 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
     CellularAtReq_t atReqSocketSend =
     {
         cmdBuf,
@@ -4179,7 +4179,7 @@ CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
         /* The return value of snprintf is not used.
          * The max length of the string is fixed and checked offline. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
-        ( void ) snprintf( cmdBuf, 4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
+        ( void ) snprintf( cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
                            "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
         pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
                                              socketSendDataPrefix, NULL,
@@ -4206,7 +4206,7 @@ CellularError_t Cellular_MqttSubscribe(CellularHandle_t cellularHandle,
     CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
-    char cmdBuf[ 4*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    char cmdBuf[ 6*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
     CellularAtReq_t atReqNoResponse =
     {
         cmdBuf,
@@ -4230,7 +4230,7 @@ CellularError_t Cellular_MqttSubscribe(CellularHandle_t cellularHandle,
         /* The return value of snprintf is not used.
          * The max length of the string is fixed and checked offline. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
-        ( void ) snprintf(cmdBuf, 4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTSUB=%d,%d,\"%s\",%d", mqttContextId, messageId, topic, qos);
+        ( void ) snprintf(cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTSUB=%d,%d,\"%s\",%d", mqttContextId, messageId, topic, qos);
         pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqNoResponse );
         cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
     }
@@ -4246,7 +4246,7 @@ CellularError_t Cellular_MqttUnsubscribe(CellularHandle_t cellularHandle,
     CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
-    char cmdBuf[ 4*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
+    char cmdBuf[ 6*CELLULAR_AT_CMD_MAX_SIZE ] = { '\0' };
     CellularAtReq_t atReqNoResponse =
     {
         cmdBuf,
@@ -4270,7 +4270,7 @@ CellularError_t Cellular_MqttUnsubscribe(CellularHandle_t cellularHandle,
         /* The return value of snprintf is not used.
         * The max length of the string is fixed and checked offline. */
         /* coverity[misra_c_2012_rule_21_6_violation]. */
-        ( void ) snprintf(cmdBuf, 4*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTUNS=%d,%d,\"%s\"", mqttContextId, messageId, topic);
+        ( void ) snprintf(cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTUNS=%d,%d,\"%s\"", mqttContextId, messageId, topic);
         pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqNoResponse );
         cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
     }
