@@ -93,7 +93,7 @@ typedef void (* CellularMqttConnectCallback_t )( CellularMqttSocketContext_t * m
 typedef void (* CellularMqttDisconnectCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttOutgoingResponseCallback_t )( CellularUrcMqttEvent_t event, uint8_t result,
                                                           CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttReceiveCallback_t )( char* topic, char* payload, uint16_t payloadSize, CellularMqttSocketContext_t * mqttContext, void* context );
+typedef void (* CellularMqttReceiveCallback_t )( uint8_t bufferIndex, CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttStateCallback_t )( uint8_t status, CellularMqttSocketContext_t * mqttContext, void* context );
 
 typedef struct CellularMqttSocketContext

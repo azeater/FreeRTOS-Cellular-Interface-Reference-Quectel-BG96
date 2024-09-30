@@ -110,5 +110,15 @@ CellularError_t Cellular_MqttUnsubscribe(CellularHandle_t cellularHandle,
                                          uint16_t messageId,
                                          const char* topic);
 
+CellularError_t Cellular_MqttReadIncomingPublish( CellularHandle_t cellularHandle,
+                                                  uint8_t mqttContextId,
+                                                  uint8_t mqttBufferIndex,
+                                                  uint8_t * pBuffer,
+                                                  uint32_t bufferLength,
+                                                  uint32_t * pReceivedDataLength,
+                                                  char * topic,
+                                                  uint32_t topicBufferLength,
+                                                  uint32_t * receivedTopicLength);
+
 
 #endif

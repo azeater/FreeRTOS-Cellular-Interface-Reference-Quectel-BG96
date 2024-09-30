@@ -110,6 +110,8 @@
 
 #define MAX_QSSLRECV_STRING_PREFIX_STRING            ( 18U )    /* The max data prefix string is "+QSSLRECV: 1460\r\n" */
 
+#define MQTT_DATA_PREFIX_STRING                       "+QMTRECV:"
+#define MQTT_DATA_PREFIX_STRING_LENGTH                ( 9U )
 /*-----------------------------------------------------------*/
 
 /**
@@ -121,6 +123,16 @@ typedef struct _socketDataRecv
     uint8_t * pData;
     CellularSocketAddress_t * pRemoteSocketAddress;
 } _socketDataRecv_t;
+
+typedef struct _mqttDataRecv
+{
+    uint32_t * pDataLen;
+    uint8_t * pData;
+    uint32_t pDataBufferSize;
+    char * pTopic;
+    uint32_t * pTopicLength;
+    uint32_t pTopicBufferSize;
+} _mqttDataRecv_t;
 
 /*-----------------------------------------------------------*/
 
@@ -4168,17 +4180,7 @@ CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
             atDataReqMqttPublish.dataLen = ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN;
         }
 
-        /* Check send timeout. If not set by setsockopt, use default value. */
-//        if( socketHandle->sendTimeoutMs != 0U )
-//        {
-//            sendTimeout = socketHandle->sendTimeoutMs;
-//        }
 
-        /* Form the AT command. */
-
-        /* The return value of snprintf is not used.
-         * The max length of the string is fixed and checked offline. */
-        /* coverity[misra_c_2012_rule_21_6_violation]. */
         ( void ) snprintf( cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
                            "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
         pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
@@ -4273,6 +4275,285 @@ CellularError_t Cellular_MqttUnsubscribe(CellularHandle_t cellularHandle,
         ( void ) snprintf(cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTUNS=%d,%d,\"%s\"", mqttContextId, messageId, topic);
         pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqNoResponse );
         cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
+static CellularATError_t getMqttDataFromResp( const CellularATCommandResponse_t * pAtResp,
+                                          const _mqttDataRecv_t * pDataRecv,
+                                          uint32_t outBufSize )
+{
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    const char * pInputLine = NULL;
+    uint32_t dataLenToCopy = 0;
+
+    /* Check if the received data size is greater than the output buffer size. */
+    if( *pDataRecv->pDataLen > outBufSize )
+    {
+        LogError( ( "Data is turncated, received data length %d, out buffer size %d",
+                    *pDataRecv->pDataLen, outBufSize ) );
+        dataLenToCopy = outBufSize;
+        *pDataRecv->pDataLen = outBufSize;
+    }
+    else
+    {
+        dataLenToCopy = *pDataRecv->pDataLen;
+    }
+
+    /* Data is stored in the next intermediate response. */
+    if( pAtResp->pItm->pNext != NULL )
+    {
+        pInputLine = pAtResp->pItm->pNext->pLine + 1; // To skip the first quote mark
+
+        if( ( pInputLine != NULL ) && ( dataLenToCopy > 0U ) )
+        {
+            /* Copy the data to the out buffer. */
+            ( void ) memcpy( ( void * ) pDataRecv->pData, ( const void * ) pInputLine, dataLenToCopy );
+        }
+        else
+        {
+            LogError( ( "Receive Data: Data pointer NULL" ) );
+            atCoreStatus = CELLULAR_AT_BAD_PARAMETER;
+        }
+    }
+    else if( *pDataRecv->pDataLen == 0U )
+    {
+        /* Receive command success but no data. */
+        LogDebug( ( "Receive Data: no data" ) );
+    }
+    else
+    {
+        LogError( ( "Receive Data: Intermediate response empty" ) );
+        atCoreStatus = CELLULAR_AT_BAD_PARAMETER;
+    }
+
+    return atCoreStatus;
+}
+
+static CellularPktStatus_t _Cellular_RecvMqttData( CellularContext_t * pContext,
+                                                   const CellularATCommandResponse_t * pAtResp,
+                                                   void * pData,
+                                                   uint16_t dataLen )
+{
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char * pInputLine = NULL, * pToken = NULL;
+    const _mqttDataRecv_t * pDataRecv = ( _mqttDataRecv_t * ) pData;
+    int32_t tempValue = 0;
+
+    if( pContext == NULL )
+    {
+        LogError( ( "Receive Data: invalid context" ) );
+        pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( ( pAtResp == NULL ) || ( pAtResp->pItm == NULL ) || ( pAtResp->pItm->pLine == NULL ) )
+    {
+        LogError( ( "Receive Data: response is invalid" ) );
+        pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( ( pDataRecv == NULL ) || ( pDataRecv->pData == NULL ) || ( pDataRecv->pDataLen == NULL ) )
+    {
+        LogError( ( "Receive Data: Bad param" ) );
+        pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
+    }
+    else
+    {
+        uint16_t i = 0;
+        pInputLine = pAtResp->pItm->pLine;
+
+        // Loop through message tokens till we reach topic
+        for (i = 0; i < 3; i ++)
+        {
+            if ( atCoreStatus == CELLULAR_AT_SUCCESS)
+            {
+                atCoreStatus = Cellular_ATGetNextTok ( &pInputLine, &pToken);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Store topic and topic size in structure
+        if ( atCoreStatus == CELLULAR_AT_SUCCESS)
+        {
+            *pDataRecv->pTopicLength = strlen(pToken);
+            ( void ) memcpy( ( void * ) pDataRecv->pTopic, ( const void * ) pToken, *pDataRecv->pTopicLength );
+            atCoreStatus = Cellular_ATGetNextTok ( &pInputLine, &pToken );
+        }
+
+        // Get the size of the received message
+        if ( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+            if( ( tempValue >= ( int32_t ) 0 ) && ( tempValue < ( ( int32_t ) CELLULAR_MAX_RECV_DATA_LEN ) ) )
+            {
+                *pDataRecv->pDataLen = ( uint32_t ) tempValue;
+            }
+            else
+            {
+                LogError( ( "Error in Data Length Processing: No valid digit found. Token %s", pToken ) );
+                atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+
+        /* Process the data buffer. */
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = getMqttDataFromResp( pAtResp, pDataRecv, dataLen );
+        }
+
+        pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+    }
+
+    return pktStatus;
+}
+
+static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
+                                                 char * pLine,
+                                                 uint32_t lineLength,
+                                                 char ** ppDataStart,
+                                                 uint32_t * pDataLength )
+{
+    char * pDataStart = NULL;
+    int32_t tempValue = 0;
+    CellularATError_t atResult = CELLULAR_AT_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    uint32_t i = 0;
+    const char delimiter = ',';
+    uint8_t delimiterCount = 0;
+
+    ( void ) pCallbackContext;
+
+    if( ( pLine == NULL ) || ( ppDataStart == NULL ) || ( pDataLength == NULL ) )
+    {
+        pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
+    }
+    else
+    {
+        if ( strncmp( pLine, MQTT_DATA_PREFIX_STRING, MQTT_DATA_PREFIX_STRING_LENGTH ) == 0)
+        {
+            pDataStart = pLine;
+            char dataSizeSubString[5] = "\0";
+            uint8_t subIndex = 0;
+            //Loop through line looking for delimiters
+            for ( i = 0; i < lineLength; i++ )
+            {
+                // After third delimiter, payload size begins
+                // so copy it to local string to find the data size
+                if (delimiterCount == 3 && subIndex < 5)
+                {
+                    dataSizeSubString[subIndex] = pDataStart[i];
+                    subIndex += 1;
+                }
+                else if (delimiterCount == 4) // Last comma means we've reached the payload part
+                {                             // of the message.
+                    dataSizeSubString[subIndex - 1] = '\0';
+                    atResult = Cellular_ATStrtoi(dataSizeSubString, 10, &tempValue);
+                    if ( atResult == CELLULAR_AT_SUCCESS )
+                    {
+                        if( ( tempValue >= 0 ) &&
+                           ( tempValue < ( int32_t ) CELLULAR_MAX_RECV_DATA_LEN ) )
+                        {
+                           *pDataLength = ( uint32_t ) tempValue + 2; //Taking into account the quotes
+                           pDataStart[i-1] = '\0';
+                           pDataStart = &pDataStart[i];
+                           LogDebug( ( "Start of data found at 0x%08x with length %ld", *ppDataStart, tempValue ) )
+                        }
+                        else
+                        {
+                           *pDataLength = 0;
+                           pDataStart = NULL;
+                           LogError( ( "QMTRECV data larger than CELLULAR_MAX_RECV_DATA_LEN" ) );
+                        }
+                    }
+                    else
+                    {
+                        *pDataLength = 0;
+                        pDataStart = NULL;
+                        LogError( ( "Could not process data size in prefix sub string: %s", dataSizeSubString ) );
+                    }
+                    break;
+                }
+
+                if ( pDataStart[i] == delimiter)
+                {
+                    delimiterCount += 1;
+                }
+            }
+
+            if ( i == lineLength)
+            {
+                LogError( ( "Could not find all the fields in QMTRECV" ) );
+                *pDataLength = 0;
+                pDataStart = NULL;
+                pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
+            }
+        }
+
+        *ppDataStart = pDataStart;
+    }
+    return pktStatus;
+}
+
+CellularError_t Cellular_MqttReadIncomingPublish( CellularHandle_t cellularHandle,
+                                                  uint8_t mqttContextId,
+                                                  uint8_t mqttBufferIndex,
+                                                  uint8_t * pBuffer,
+                                                  uint32_t bufferLength,
+                                                  uint32_t * pReceivedDataLength,
+                                                  char * topic,
+                                                  uint32_t topicBufferLength,
+                                                  uint32_t * receivedTopicLength)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
+    uint32_t recvTimeout = DATA_READ_TIMEOUT_MS;
+    _mqttDataRecv_t dataRecv =
+    {
+        pReceivedDataLength,
+        pBuffer,
+        bufferLength,
+        topic,
+        receivedTopicLength,
+        topicBufferLength
+    };
+    CellularAtReq_t atReqMqttRecv =
+    {
+        cmdBuf,
+        CELLULAR_AT_MULTI_DATA_WO_PREFIX,
+        "+QMTRECV",
+        _Cellular_RecvMqttData,
+        ( void * ) &dataRecv,
+        bufferLength,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus != CELLULAR_SUCCESS )
+    {
+        LogError( ( "_Cellular_MqttReadIncomingPublish failed." ) );
+    }
+    else if( ( pBuffer == NULL ) || ( pReceivedDataLength == NULL ) || ( bufferLength == 0U ) )
+    {
+        LogError( ( "_Cellular_MqttReadIncomingPublish: Bad input Param." ) );
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    else
+    {
+        ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE,
+                           "%s%d,%d", "AT+QMTRECV=", mqttContextId, mqttBufferIndex );
+        pktStatus = _Cellular_TimeoutAtcmdDataRecvRequestWithCallback( pContext, atReqMqttRecv, recvTimeout, mqttRecvDataPrefix, NULL );
+
+        if( pktStatus != CELLULAR_PKT_STATUS_OK )
+        {
+            /* Reset data handling parameters. */
+            LogError( ( "_Cellular_MqttReadIncomingPublish: Data Receive fail, pktStatus: %d", pktStatus ) );
+            cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+        }
     }
 
     return cellularStatus;

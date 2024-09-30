@@ -1471,9 +1471,7 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
     char * pUrcStr = NULL, * pToken = NULL;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
     uint8_t mqttIndex = 0;
-    char * topic = NULL;
-    char * payload = NULL;
-    uint16_t payloadSize = 0;
+    uint8_t bufferIndex = 0;
     int32_t tempValue = 0;
     CellularMqttSocketContext_t * mqttContext = NULL;
 
@@ -1529,27 +1527,9 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
 
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
-                    LogDebug(("Incoming message with ID %d", tempValue));
-                    atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
-                }
-
-                if ( atCoreStatus == CELLULAR_AT_SUCCESS)
-                {
-                    topic = pToken;
-                    atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
-                }
-
-                if( atCoreStatus == CELLULAR_AT_SUCCESS )
-                {
-                    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
-                }
-
-                if( atCoreStatus == CELLULAR_AT_SUCCESS )
-                {
-                    LogDebug(("Payload size %d", tempValue));
-                    payloadSize = (uint16_t)tempValue;
-                    payload = pUrcStr;
-                    mqttContext->receiveCallback(topic, payload, payloadSize, mqttContext, mqttContext->receiveCallbackContext);
+                    LogDebug(("Incoming publish saved in buffer %d", tempValue));
+                    bufferIndex = (uint8_t)tempValue;
+                    mqttContext->receiveCallback(bufferIndex, mqttContext, mqttContext->receiveCallbackContext);
                 }
             }
             else
