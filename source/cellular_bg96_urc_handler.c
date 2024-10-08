@@ -1136,7 +1136,6 @@ static void _Cellular_ProcessMqttConnect( CellularContext_t * pContext,
 
                     if( atCoreStatus == CELLULAR_AT_SUCCESS )
                     {
-                        //TODO: Process next token for error reason
                         pktStatus = _parseMqttConnectResultTok( pToken, mqttIndex, mqttContext );
                     }
                 }
@@ -1240,32 +1239,34 @@ static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
 static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEvent_t event, char * pToken,
                                                       uint8_t mqttIndex, CellularMqttSocketContext_t *  mqttContext )
 {
-    int32_t result = 0; //TODO: Convert result to enum
+    int32_t temp = 0;
+    CellularMqttOutgoingResult_t result = CELLULAR_MQTT_OUTGOING_FAILURE;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
 
-    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &result );
+    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &temp );
 
-    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    if (atCoreStatus == CELLULAR_AT_SUCCESS && temp >= 0 && temp <= (int32_t)CELLULAR_MQTT_OUTGOING_FAILURE)
     {
-        switch (result)
-        {
-        case 0:
+        result = (CellularMqttOutgoingResult_t)temp;
+    }
+
+    switch (result)
+    {
+        case CELLULAR_MQTT_OUTGOING_SUCCESS:
         {
              LogDebug(("Successful packet send and ACK received"));
              break;
         }
-        case 1:
+        case CELLULAR_MQTT_OUTGOING_RETRY:
         {
             LogWarn(("Packet retransmission"));
             break;
         }
-        case 2:
+        case CELLULAR_MQTT_OUTGOING_FAILURE:
         default:
         {
             LogError(("Failed to send packet"));
-            result = 2; //For when result falls outside of the 0-2 band
-        }
         }
     }
 
@@ -1350,7 +1351,6 @@ static void _processMqttOutgoingResponse(CellularUrcMqttEvent_t event, CellularC
 
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
-                    //TODO: Process next token for error reason
                     pktStatus = _parseMqttOutgoingResponseResultTok( event, pToken, mqttIndex, mqttContext );
                 }
             }

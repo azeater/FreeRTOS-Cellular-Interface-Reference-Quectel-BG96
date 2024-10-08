@@ -85,13 +85,20 @@ typedef enum CellulartUrcMqttEvent
     CELLULAR_URC_MQTT_UNSUBSCRIBE,
 } CellularUrcMqttEvent_t;
 
+typedef enum CellularMqttOutgoingResult
+{
+    CELLULAR_MQTT_OUTGOING_SUCCESS = 0,
+    CELLULAR_MQTT_OUTGOING_RETRY,
+    CELLULAR_MQTT_OUTGOING_FAILURE,
+} CellularMqttOutgoingResult_t;
+
 typedef struct CellularMqttSocketContext CellularMqttSocketContext_t;
 
 typedef void (* CellularMqttOpenCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttCloseCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttConnectCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttDisconnectCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttOutgoingResponseCallback_t )( CellularUrcMqttEvent_t event, uint8_t result,
+typedef void (* CellularMqttOutgoingResponseCallback_t )( CellularUrcMqttEvent_t event, CellularMqttOutgoingResult_t result,
                                                           CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttReceiveCallback_t )( uint8_t bufferIndex, CellularMqttSocketContext_t * mqttContext, void* context );
 typedef void (* CellularMqttStateCallback_t )( uint8_t status, CellularMqttSocketContext_t * mqttContext, void* context );

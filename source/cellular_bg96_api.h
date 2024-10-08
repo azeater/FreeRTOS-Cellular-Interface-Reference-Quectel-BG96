@@ -8,10 +8,9 @@
 /* IoT Cellular data types. */
 #include "cellular_types.h"
 
-// TODO: Create an enum instead of defines
-#define NO_SSL_CONTEXT_ID    (-1)
-#define MQTT_SSL_CONTEXT_ID  (1)
-#define HTTPS_SSL_CONTEXT_ID (2)
+#define BG96_API_NO_SSL_CONTEXT_ID    (-1)
+#define BG96_API_MQTT_SSL_CONTEXT_ID  (1)
+#define BG96_API_HTTPS_SSL_CONTEXT_ID (2)
 
 typedef struct CellularSocketSslConfig
 {

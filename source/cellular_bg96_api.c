@@ -104,14 +104,16 @@
 
 #define MAX_QIRD_STRING_PREFIX_STRING            ( 14U )    /* The max data prefix string is "+QIRD: 1460\r\n" */
 
-#define SECURE_DATA_PREFIX_STRING                       "+QSSLRECV:"
-#define SECURE_DATA_PREFIX_STRING_LENGTH                ( 10U )
-#define SECURE_DATA_PREFIX_STRING_CHANGELINE_LENGTH     ( 2U )     /* The length of the change line "\r\n". */
+#define SECURE_DATA_PREFIX_STRING                   "+QSSLRECV:"
+#define SECURE_DATA_PREFIX_STRING_LENGTH            ( 10U )
+#define SECURE_DATA_PREFIX_STRING_CHANGELINE_LENGTH ( 2U )     /* The length of the change line "\r\n". */
 
-#define MAX_QSSLRECV_STRING_PREFIX_STRING            ( 18U )    /* The max data prefix string is "+QSSLRECV: 1460\r\n" */
+#define MAX_QSSLRECV_STRING_PREFIX_STRING           ( 18U )    /* The max data prefix string is "+QSSLRECV: 1460\r\n" */
 
-#define MQTT_DATA_PREFIX_STRING                       "+QMTRECV:"
-#define MQTT_DATA_PREFIX_STRING_LENGTH                ( 9U )
+#define MQTT_DATA_PREFIX_STRING                     "+QMTRECV:"
+#define MQTT_DATA_PREFIX_STRING_LENGTH              ( 9U )
+
+#define CELLULAR_MQTT_MAX_SEND_DATA_LEN             ( 4096U )
 /*-----------------------------------------------------------*/
 
 /**
@@ -3397,7 +3399,6 @@ CellularError_t Cellular_CreateSocket( CellularHandle_t cellularHandle,
     if( cellularStatus == CELLULAR_SUCCESS )
     {
         /* pSocketHandle is checked in Cellular_CommonCreateSocket already. */
-        // TODO: UNSAFE CAST CAUSING ISSUES WITH URL WHEN SETTING pModemData
         pSocketContext = ( CellularSocketContext_t * )*pSocketHandle;
         /* Make use of pModemData to store modem specific socket data. */
         pSocketContext->pModemData = (void*)&cellularSocketSslConfig[pSocketContext->socketId];
@@ -3601,7 +3602,6 @@ CellularError_t Cellular_CheckFileExistsInStorage( CellularHandle_t cellularHand
 {
     CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
     CellularError_t cellularStatus = CELLULAR_SUCCESS;
-    //CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     char atCommandBuffer[CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
 
     ( void ) snprintf(atCommandBuffer, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QFLST=\"%s\"", filename);
@@ -3629,10 +3629,8 @@ CellularError_t Cellular_CheckFileExistsInStorage( CellularHandle_t cellularHand
     }
     else
     {
-        // TODO: Allow pktstatus here
        ( void ) _Cellular_AtcmdRequestWithCallback( pContext, atReqFileExists );
 
-       //cellularStatus = _Cellular_TranslatePktStatus( pktStatus ); TODO: Enable this and differentiate between different errors
        LogDebug( ( "_Cellular_CheckFileExistsInStorage, File Exists[%d]", *fileExists ) );
     }
 
@@ -3675,6 +3673,7 @@ CellularPktStatus_t _Cellular_RecvFuncCheckFileExists ( CellularContext_t * pCon
 
         if( pktStatus == CELLULAR_PKT_STATUS_OK )
         {
+
             /* remove the token prefix. */
             pTokenPtr = strtok_r( pInputLine, ":", &pInputLine );
 
@@ -3762,8 +3761,6 @@ CellularError_t Cellular_ConfigureSSLContext( CellularHandle_t cellularHandle,
 
     return cellularStatus;
 }
-
-//TODO: Need to clean up the MQTT section - double check which AT calls are being used etc.
 
 CellularError_t Cellular_MqttConfigureGeneric(CellularHandle_t cellularHandle,
         uint8_t mqttContextId,
@@ -4123,8 +4120,6 @@ CellularError_t Cellular_MqttDisconnect(CellularHandle_t cellularHandle,
 
     return cellularStatus;
 }
-
-#define CELLULAR_MQTT_MAX_SEND_DATA_LEN (4096U) //According to later version of manual can be 4096
 
 CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
                                      uint8_t mqttContextId,

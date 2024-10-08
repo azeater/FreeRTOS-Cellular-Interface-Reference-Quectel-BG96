@@ -398,7 +398,6 @@ CellularError_t Cellular_CreateMqttContext( CellularContext_t * pContext, int8_t
     else
     {
         cellularStatus = CELLULAR_BAD_PARAMETER;
-        //TODO: Implement some kind of indicactor/logging
     }
     return cellularStatus;
 }
