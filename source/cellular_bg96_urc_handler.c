@@ -838,7 +838,7 @@ CellularPktStatus_t _Cellular_ParseSimstat( char * pInputStr,
 
 static CellularPktStatus_t _parseMqttOpenNextTok( const char * pToken,
                                                     uint32_t mqttIndex,
-                                                    CellularMqttSocketContext_t * mqttContext )
+                                                    CellularMqttSocket_t * mqttSocket )
 {
     int32_t mqttStatus = 0;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
@@ -850,20 +850,20 @@ static CellularPktStatus_t _parseMqttOpenNextTok( const char * pToken,
     {
         if( mqttStatus != 0 )
         {
-            mqttContext->mqttState = MQTTSTATE_ALLOCATED;
+            mqttSocket->mqttState = MQTTSTATE_ALLOCATED;
             LogError( ( "_parseMqttOpen: MQTT Socket open failed, conn %d, status %d", mqttIndex, mqttStatus ) );
         }
         else
         {
-            mqttContext->mqttState = MQTTSTATE_OPENED;
+            mqttSocket->mqttState = MQTTSTATE_OPENED;
             LogDebug( ( "_parseMqttOpen: MQTT Socket open success, conn %d", mqttIndex ) );
         }
     }
 
     /* Indicate the upper layer about the socket open status. */
-    if( mqttContext->openCallback != NULL )
+    if( mqttSocket->openCallback != NULL )
     {
-        mqttContext->openCallback(mqttContext, mqttContext->openCallbackContext);
+        mqttSocket->openCallback(mqttSocket, mqttSocket->callbackContext);
     }
     else
     {
@@ -882,7 +882,7 @@ static void _Cellular_ProcessMqttOpen( CellularContext_t * pContext,
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
     uint8_t mqttIndex = 0;
     int32_t tempValue = 0;
-    CellularMqttSocketContext_t * mqttContext = NULL;
+    CellularMqttSocket_t * mqttSocket = NULL;
 
     if( pContext == NULL )
     {
@@ -923,15 +923,15 @@ static void _Cellular_ProcessMqttOpen( CellularContext_t * pContext,
 
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
-            mqttContext = Cellular_GetMqttContext( mqttIndex );
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
 
-            if( mqttContext != NULL )
+            if( mqttSocket != NULL )
             {
                 atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
 
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
-                    pktStatus = _parseMqttOpenNextTok( pToken, mqttIndex, mqttContext );
+                    pktStatus = _parseMqttOpenNextTok( pToken, mqttIndex, mqttSocket );
                 }
             }
             else
@@ -959,7 +959,7 @@ static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
     char * pLocalUrcStr = pInputLine;
     int32_t tempValue = 0;
     uint8_t mqttIndex = 0;
-    CellularMqttSocketContext_t * pMqttData = NULL;
+    CellularMqttSocket_t * pMqttData = NULL;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
 
     atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pLocalUrcStr );
@@ -999,7 +999,7 @@ static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
 
     if( atCoreStatus == CELLULAR_AT_SUCCESS)
     {
-        pMqttData = Cellular_GetMqttContext( mqttIndex );
+        pMqttData = Cellular_GetMqttSocket( mqttIndex );
 
         if( pMqttData != NULL )
         {
@@ -1017,7 +1017,7 @@ static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
             /* Indicate the upper layer about the socket close. */
             if( pMqttData->closeCallback != NULL )
             {
-                pMqttData->closeCallback( pMqttData, pMqttData->closeCallbackContext );
+                pMqttData->closeCallback( pMqttData, pMqttData->callbackContext );
             }
             else
             {
@@ -1032,7 +1032,7 @@ static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
 }
 
 
-static CellularPktStatus_t _parseMqttConnectResultTok( char * pToken, uint8_t mqttIndex, CellularMqttSocketContext_t * mqttContext )
+static CellularPktStatus_t _parseMqttConnectResultTok( char * pToken, uint8_t mqttIndex, CellularMqttSocket_t * mqttSocket )
 {
     int32_t mqttStatus = 0;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
@@ -1047,28 +1047,28 @@ static CellularPktStatus_t _parseMqttConnectResultTok( char * pToken, uint8_t mq
         case 0:
         {
              LogDebug(("Successful CONNECT and ACK received"));
-             mqttContext->mqttState = MQTTSTATE_CONNECTED;
+             mqttSocket->mqttState = MQTTSTATE_CONNECTED;
              break;
         }
         case 1:
         {
             LogWarn(("Connect retransmission"));
-            mqttContext->mqttState = MQTTSTATE_CONNECTING;
+            mqttSocket->mqttState = MQTTSTATE_CONNECTING;
             break;
         }
         case 2:
         default:
         {
             LogError(("Failed to send CONNECT packet"));
-            mqttContext->mqttState = MQTTSTATE_DISCONNECTED;
+            mqttSocket->mqttState = MQTTSTATE_DISCONNECTED;
         }
         }
     }
 
     /* Indicate the upper layer about the socket open status. */
-    if( mqttContext->connectCallback != NULL )
+    if( mqttSocket->connectCallback != NULL )
     {
-        mqttContext->connectCallback(mqttContext, mqttContext->connectCallbackContext);
+        mqttSocket->connectCallback(mqttSocket, mqttSocket->callbackContext);
     }
     else
     {
@@ -1087,7 +1087,7 @@ static void _Cellular_ProcessMqttConnect( CellularContext_t * pContext,
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
     uint8_t mqttIndex = 0;
     int32_t tempValue = 0;
-    CellularMqttSocketContext_t * mqttContext = NULL;
+    CellularMqttSocket_t * mqttSocket = NULL;
 
     if( pContext == NULL )
         {
@@ -1128,15 +1128,15 @@ static void _Cellular_ProcessMqttConnect( CellularContext_t * pContext,
 
             if( atCoreStatus == CELLULAR_AT_SUCCESS )
             {
-                mqttContext = Cellular_GetMqttContext( mqttIndex );
+                mqttSocket = Cellular_GetMqttSocket( mqttIndex );
 
-                if( mqttContext != NULL )
+                if( mqttSocket != NULL )
                 {
                     atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
 
                     if( atCoreStatus == CELLULAR_AT_SUCCESS )
                     {
-                        pktStatus = _parseMqttConnectResultTok( pToken, mqttIndex, mqttContext );
+                        pktStatus = _parseMqttConnectResultTok( pToken, mqttIndex, mqttSocket );
                     }
                 }
                 else
@@ -1164,7 +1164,7 @@ static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
     char * pLocalUrcStr = pInputLine;
     int32_t tempValue = 0;
     uint8_t mqttIndex = 0;
-    CellularMqttSocketContext_t * pMqttData = NULL;
+    CellularMqttSocket_t * pMqttData = NULL;
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
 
     atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pLocalUrcStr );
@@ -1204,7 +1204,7 @@ static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
 
     if( atCoreStatus == CELLULAR_AT_SUCCESS)
     {
-        pMqttData = Cellular_GetMqttContext( mqttIndex );
+        pMqttData = Cellular_GetMqttSocket( mqttIndex );
 
         if( pMqttData != NULL )
         {
@@ -1222,7 +1222,7 @@ static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
             /* Indicate the upper layer about the socket close. */
             if( pMqttData->disconnectCallback != NULL )
             {
-                pMqttData->disconnectCallback( pMqttData, pMqttData->disconnectCallbackContext );
+                pMqttData->disconnectCallback( pMqttData, pMqttData->callbackContext );
             }
             else
             {
@@ -1237,7 +1237,7 @@ static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
 }
 
 static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEvent_t event, char * pToken,
-                                                      uint8_t mqttIndex, CellularMqttSocketContext_t *  mqttContext )
+                                                      uint8_t mqttIndex, CellularMqttSocket_t *  mqttSocket )
 {
     int32_t temp = 0;
     CellularMqttOutgoingResult_t result = CELLULAR_MQTT_OUTGOING_FAILURE;
@@ -1271,9 +1271,9 @@ static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEv
     }
 
     /* Indicate the upper layer about the socket open status. */
-    if( mqttContext->outgoingCallback != NULL )
+    if( mqttSocket->outgoingCallback != NULL )
     {
-        mqttContext->outgoingCallback(event, (uint8_t)result, mqttContext, mqttContext->connectCallbackContext);
+        mqttSocket->outgoingCallback(event, (uint8_t)result, mqttSocket, mqttSocket->callbackContext);
     }
     else
     {
@@ -1291,7 +1291,7 @@ static void _processMqttOutgoingResponse(CellularUrcMqttEvent_t event, CellularC
     CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
     uint8_t mqttIndex = 0;
     int32_t tempValue = 0;
-    CellularMqttSocketContext_t * mqttContext = NULL;
+    CellularMqttSocket_t * mqttSocket = NULL;
 
     if( pContext == NULL )
     {
@@ -1332,9 +1332,9 @@ static void _processMqttOutgoingResponse(CellularUrcMqttEvent_t event, CellularC
 
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
-            mqttContext = Cellular_GetMqttContext( mqttIndex );
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
 
-            if( mqttContext != NULL )
+            if( mqttSocket != NULL )
             {
                 atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
 
@@ -1351,7 +1351,7 @@ static void _processMqttOutgoingResponse(CellularUrcMqttEvent_t event, CellularC
 
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
-                    pktStatus = _parseMqttOutgoingResponseResultTok( event, pToken, mqttIndex, mqttContext );
+                    pktStatus = _parseMqttOutgoingResponseResultTok( event, pToken, mqttIndex, mqttSocket );
                 }
             }
             else
@@ -1396,7 +1396,7 @@ static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
     uint8_t mqttIndex = 0;
     uint8_t status = 0;
     int32_t tempValue = 0;
-    CellularMqttSocketContext_t * mqttContext = NULL;
+    CellularMqttSocket_t * mqttSocket = NULL;
 
     if( pContext == NULL )
     {
@@ -1437,9 +1437,9 @@ static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
 
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
-            mqttContext = Cellular_GetMqttContext( mqttIndex );
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
 
-            if( mqttContext != NULL )
+            if( mqttSocket != NULL )
             {
                 atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
 
@@ -1451,8 +1451,8 @@ static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
                 if( atCoreStatus == CELLULAR_AT_SUCCESS )
                 {
                     status = (uint8_t)tempValue;
-                    mqttContext->mqttState = MQTTSTATE_DISCONNECTED;
-                    mqttContext->stateCallback(status, mqttContext, mqttContext->stateCallbackContext);
+                    mqttSocket->mqttState = MQTTSTATE_DISCONNECTED;
+                    mqttSocket->stateCallback(status, mqttSocket, mqttSocket->callbackContext);
                 }
             }
             else
@@ -1473,7 +1473,7 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
     uint8_t mqttIndex = 0;
     uint8_t bufferIndex = 0;
     int32_t tempValue = 0;
-    CellularMqttSocketContext_t * mqttContext = NULL;
+    CellularMqttSocket_t * mqttSocket = NULL;
 
     if( pContext == NULL )
     {
@@ -1514,9 +1514,9 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
 
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
-            mqttContext = Cellular_GetMqttContext( mqttIndex );
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
 
-            if( mqttContext != NULL )
+            if( mqttSocket != NULL )
             {
                 atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
 
@@ -1529,7 +1529,7 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
                 {
                     LogDebug(("Incoming publish saved in buffer %d", tempValue));
                     bufferIndex = (uint8_t)tempValue;
-                    mqttContext->receiveCallback(bufferIndex, mqttContext, mqttContext->receiveCallbackContext);
+                    mqttSocket->receiveCallback(bufferIndex, mqttSocket, mqttSocket->callbackContext);
                 }
             }
             else

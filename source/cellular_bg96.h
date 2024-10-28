@@ -92,18 +92,30 @@ typedef enum CellularMqttOutgoingResult
     CELLULAR_MQTT_OUTGOING_FAILURE,
 } CellularMqttOutgoingResult_t;
 
-typedef struct CellularMqttSocketContext CellularMqttSocketContext_t;
+//! @brief Enumeration representing various URC status events for the BG96 module.
+enum Bg96UrcStatusEvent
+{
+    BG96_URC_STATUS_PEER_CLOSED = 1,
+    BG96_URC_STATUS_PINGREQ_FAIL,
+    BG96_URC_STATUS_CONNECT_FAIL,
+    BG96_URC_STATUS_CONNACK_FAIL,
+    BG96_URC_STATUS_DISCONNECT,
+    BG96_URC_STATUS_MULTIPLE_SEND_FAIL,
+    BG96_URC_STATUS_NOT_VALID
+};
 
-typedef void (* CellularMqttOpenCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttCloseCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttConnectCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttDisconnectCallback_t )( CellularMqttSocketContext_t * mqttContext, void* context );
+typedef struct CellularMqttSocket CellularMqttSocket_t;
+
+typedef void (* CellularMqttOpenCallback_t )( CellularMqttSocket_t * mqttContext, void* context );
+typedef void (* CellularMqttCloseCallback_t )( CellularMqttSocket_t * mqttContext, void* context );
+typedef void (* CellularMqttConnectCallback_t )( CellularMqttSocket_t * mqttContext, void* context );
+typedef void (* CellularMqttDisconnectCallback_t )( CellularMqttSocket_t * mqttContext, void* context );
 typedef void (* CellularMqttOutgoingResponseCallback_t )( CellularUrcMqttEvent_t event, CellularMqttOutgoingResult_t result,
-                                                          CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttReceiveCallback_t )( uint8_t bufferIndex, CellularMqttSocketContext_t * mqttContext, void* context );
-typedef void (* CellularMqttStateCallback_t )( uint8_t status, CellularMqttSocketContext_t * mqttContext, void* context );
+                                                          CellularMqttSocket_t * mqttContext, void* context );
+typedef void (* CellularMqttReceiveCallback_t )( uint8_t bufferIndex, CellularMqttSocket_t * mqttContext, void* context );
+typedef void (* CellularMqttStateCallback_t )( uint8_t status, CellularMqttSocket_t * mqttContext, void* context );
 
-typedef struct CellularMqttSocketContext
+typedef struct CellularMqttSocket
 {
     CellularHandle_t cellularHandle;
     uint8_t          cellularMqttIndex;
@@ -113,20 +125,15 @@ typedef struct CellularMqttSocketContext
 
     /* Callback functions */
     CellularMqttOpenCallback_t openCallback;
-    void* openCallbackContext;
+
     CellularMqttCloseCallback_t closeCallback;
-    void* closeCallbackContext;
     CellularMqttConnectCallback_t connectCallback;
-    void* connectCallbackContext;
     CellularMqttDisconnectCallback_t disconnectCallback;
-    void* disconnectCallbackContext;
     CellularMqttOutgoingResponseCallback_t outgoingCallback;
-    void* outgoingCallbackContext;
     CellularMqttReceiveCallback_t receiveCallback;
-    void* receiveCallbackContext;
     CellularMqttStateCallback_t stateCallback;
-    void* stateCallbackContext;
-} CellularMqttSocketContext_t;
+    void* callbackContext;
+} CellularMqttSocket_t;
 
 typedef struct cellularModuleContext
 {
@@ -139,17 +146,17 @@ typedef struct cellularModuleContext
     CellularDnsResultEventCallback_t dnsEventCallback;
     /* Forward declaration to declar the callback function prototype. */
     /* coverity[misra_c_2012_rule_1_1_violation]. */
-    CellularMqttSocketContext_t moduleMqttSockets[CELLULAR_NUM_SOCKET_MAX];
+    CellularMqttSocket_t moduleMqttSockets[CELLULAR_NUM_SOCKET_MAX];
 } cellularModuleContext_t;
 
 CellularPktStatus_t _Cellular_ParseSimstat( char * pInputStr,
                                             CellularSimCardState_t * pSimState );
 
-CellularError_t Cellular_CreateMqttContext( CellularContext_t * pContext, int8_t* pMqttIndex);
+CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t* pMqttIndex);
 
-CellularMqttSocketContext_t * Cellular_GetMqttContext( uint8_t mqttIndex );
+CellularMqttSocket_t * Cellular_GetMqttSocket( uint8_t mqttIndex );
 
-void Cellular_DeleteMqttContext( uint8_t mqttIndex );
+void Cellular_DeleteMqttSocket( uint8_t mqttIndex );
 
 extern CellularAtParseTokenMap_t CellularUrcHandlerTable[];
 extern uint32_t CellularUrcHandlerTableSize;
