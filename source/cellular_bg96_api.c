@@ -136,6 +136,10 @@ typedef struct _mqttDataRecv
     uint32_t pTopicBufferSize;
 } _mqttDataRecv_t;
 
+static CellularSocketSslConfig_t cellularSocketSslConfig[ CELLULAR_NUM_SOCKET_MAX ];
+
+static CellularMqttSocket_t moduleMqttSockets[CELLULAR_NUM_SOCKET_MAX];
+
 /*-----------------------------------------------------------*/
 
 static bool _parseSignalQuality( char * pQcsqPayload,
@@ -3382,8 +3386,6 @@ CellularError_t Cellular_Init( CellularHandle_t * pCellularHandle,
 
 /*-----------------------------------------------------------*/
 
-static CellularSocketSslConfig_t cellularSocketSslConfig[ CELLULAR_NUM_SOCKET_MAX ];
-
 CellularError_t Cellular_CreateSocket( CellularHandle_t cellularHandle,
                                        uint8_t pdnContextId,
                                        CellularSocketDomain_t socketDomain,
@@ -3501,10 +3503,13 @@ CellularError_t Cellular_UploadFileToStorage( CellularHandle_t cellularHandle,
 
     if( ( cellularHandle == NULL ) || ( filename == NULL ) || ( fileContent == NULL ) || ( pSentDataLength == NULL ) )
     {
-        return CELLULAR_BAD_PARAMETER;
+        cellularStatus = CELLULAR_BAD_PARAMETER;
     }
 
-    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+    if (cellularStatus == CELLULAR_SUCCESS)
+    {
+        cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+    }
 
     if( cellularStatus != CELLULAR_SUCCESS )
     {
@@ -3760,6 +3765,79 @@ CellularError_t Cellular_ConfigureSSLContext( CellularHandle_t cellularHandle,
     }
 
     return cellularStatus;
+}
+
+CellularError_t Cellular_CreateMqttSocket( CellularContext_t * pContext, int8_t* pMqttIndex)
+{
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+
+    if (pContext != NULL && pMqttIndex != NULL)
+    {
+        *pMqttIndex = -1;
+        uint8_t i = 0;
+        // Loop through available MQTT sockets and find unused one
+        while (i < CELLULAR_NUM_SOCKET_MAX)
+        {
+            if (moduleMqttSockets[i].cellularHandle != pContext)
+            {
+                moduleMqttSockets[i].cellularMqttIndex   = i;
+                moduleMqttSockets[i].cellularHandle      = pContext;
+                moduleMqttSockets[i].mqttState           = MQTTSTATE_ALLOCATED;
+                moduleMqttSockets[i].sslIndex            = -1;
+                moduleMqttSockets[i].openCallback        = NULL;
+                moduleMqttSockets[i].connectCallback     = NULL;
+                moduleMqttSockets[i].connectCallback     = NULL;
+                moduleMqttSockets[i].disconnectCallback  = NULL;
+                moduleMqttSockets[i].outgoingCallback    = NULL;
+                moduleMqttSockets[i].receiveCallback     = NULL;
+                moduleMqttSockets[i].stateCallback       = NULL;
+                *pMqttIndex = i;
+                break;
+            }
+            else
+            {
+                i++;
+            }
+        }
+        // If there aren't any unused sockets left return error
+        if (i >= CELLULAR_NUM_SOCKET_MAX)
+        {
+            cellularStatus = CELLULAR_RESOURCE_CREATION_FAIL;
+        }
+    }
+    else
+    {
+        cellularStatus = CELLULAR_BAD_PARAMETER;
+    }
+    return cellularStatus;
+}
+
+CellularMqttSocket_t * Cellular_GetMqttSocket( uint8_t mqttIndex )
+{
+    CellularMqttSocket_t * context = NULL;
+    if (mqttIndex >= 0 && mqttIndex < CELLULAR_NUM_SOCKET_MAX)
+    {
+        context = &moduleMqttSockets[mqttIndex];
+    }
+    return context;
+}
+
+void Cellular_DeleteMqttSocket( uint8_t mqttIndex )
+{
+    if (mqttIndex >= 0 && mqttIndex < CELLULAR_NUM_SOCKET_MAX)
+    {
+        moduleMqttSockets[mqttIndex].cellularMqttIndex   = -1;
+        moduleMqttSockets[mqttIndex].cellularHandle      = NULL;
+        moduleMqttSockets[mqttIndex].mqttState           = MQTTSTATE_ALLOCATED;
+        moduleMqttSockets[mqttIndex].sslIndex            = -1;
+        moduleMqttSockets[mqttIndex].openCallback        = NULL;
+        moduleMqttSockets[mqttIndex].connectCallback     = NULL;
+        moduleMqttSockets[mqttIndex].connectCallback     = NULL;
+        moduleMqttSockets[mqttIndex].disconnectCallback  = NULL;
+        moduleMqttSockets[mqttIndex].outgoingCallback    = NULL;
+        moduleMqttSockets[mqttIndex].receiveCallback     = NULL;
+        moduleMqttSockets[mqttIndex].stateCallback       = NULL;
+    }
 }
 
 CellularError_t Cellular_MqttConfigureGeneric(CellularHandle_t cellularHandle,
@@ -4170,17 +4248,20 @@ CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
     else
     {
         /* Send data length check. */
-        if( messageLength > ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN )
+        if( messageLength <= ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN )
         {
-            atDataReqMqttPublish.dataLen = ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN;
+            ( void ) snprintf( cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
+                               "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
+            pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
+                                                 socketSendDataPrefix, NULL,
+                                                 PACKET_REQ_TIMEOUT_MS, sendTimeout, 0U );
+
+        }
+        else
+        {
+            pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
         }
 
-
-        ( void ) snprintf( cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
-                           "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
-        pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
-                                             socketSendDataPrefix, NULL,
-                                             PACKET_REQ_TIMEOUT_MS, sendTimeout, 0U );
 
         if( pktStatus != CELLULAR_PKT_STATUS_OK )
         {

@@ -37,6 +37,7 @@
 #include "cellular_common_api.h"
 #include "cellular_common_portable.h"
 #include "cellular_bg96.h"
+#include "cellular_bg96_api.h"
 
 /*-----------------------------------------------------------*/
 
@@ -1246,7 +1247,9 @@ static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEv
 
     atCoreStatus = Cellular_ATStrtoi( pToken, 10, &temp );
 
-    if (atCoreStatus == CELLULAR_AT_SUCCESS && temp >= 0 && temp <= (int32_t)CELLULAR_MQTT_OUTGOING_FAILURE)
+    if ( ( atCoreStatus == CELLULAR_AT_SUCCESS ) &&
+         ( temp >= 0 ) &&
+         ( temp <= (int32_t)CELLULAR_MQTT_OUTGOING_FAILURE) )
     {
         result = (CellularMqttOutgoingResult_t)temp;
     }
@@ -1270,7 +1273,6 @@ static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEv
         }
     }
 
-    /* Indicate the upper layer about the socket open status. */
     if( mqttSocket->outgoingCallback != NULL )
     {
         mqttSocket->outgoingCallback(event, (uint8_t)result, mqttSocket, mqttSocket->callbackContext);
@@ -1424,7 +1426,7 @@ static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
             if( ( tempValue >= 0 ) &&
-               ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
             {
                mqttIndex = ( uint8_t ) tempValue;
             }
@@ -1501,7 +1503,7 @@ static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
         if( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
             if( ( tempValue >= 0 ) &&
-               ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
             {
                mqttIndex = ( uint8_t ) tempValue;
             }
