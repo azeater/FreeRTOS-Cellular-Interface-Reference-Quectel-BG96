@@ -78,8 +78,6 @@ typedef struct cellularModuleContext
     uint8_t dnsIndex;              /* DNS query current index. */
     char * pDnsUsrData;            /* DNS user data to store the result. */
     CellularDnsResultEventCallback_t dnsEventCallback;
-    /* Forward declaration to declar the callback function prototype. */
-    /* coverity[misra_c_2012_rule_1_1_violation]. */
 } cellularModuleContext_t;
 
 CellularPktStatus_t _Cellular_ParseSimstat( char * pInputStr,

@@ -37,6 +37,7 @@
 #include "cellular_common_api.h"
 #include "cellular_common_portable.h"
 #include "cellular_bg96.h"
+#include "cellular_bg96_api.h"
 
 /*-----------------------------------------------------------*/
 
@@ -55,6 +56,25 @@ static void _Cellular_ProcessSimstat( CellularContext_t * pContext,
 static void _Cellular_ProcessIndication( CellularContext_t * pContext,
                                          char * pInputLine );
 
+static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttConnect( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttOpen( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttPublish( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttSubscribe( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttUnsubscribe( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
+                                         char * pInputLine );
+static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
+                                         char * pInputLine );
+
 /*-----------------------------------------------------------*/
 
 /* Try to Keep this map in Alphabetical order. */
@@ -62,16 +82,27 @@ static void _Cellular_ProcessIndication( CellularContext_t * pContext,
 /* coverity[misra_c_2012_rule_8_7_violation] */
 CellularAtParseTokenMap_t CellularUrcHandlerTable[] =
 {
-    { "CEREG",             Cellular_CommonUrcProcessCereg },
-    { "CGREG",             Cellular_CommonUrcProcessCgreg },
-    { "CREG",              Cellular_CommonUrcProcessCreg  },
-    { "NORMAL POWER DOWN", _Cellular_ProcessPowerDown     },
-    { "PSM POWER DOWN",    _Cellular_ProcessPsmPowerDown  },
-    { "QIND",              _Cellular_ProcessIndication    },
-    { "QIOPEN",            _Cellular_ProcessSocketOpen    },
-    { "QIURC",             _Cellular_ProcessSocketurc     },
-    { "QSIMSTAT",          _Cellular_ProcessSimstat       },
-    { "RDY",               _Cellular_ProcessModemRdy      }
+    { "CEREG",             Cellular_CommonUrcProcessCereg   },
+    { "CGREG",             Cellular_CommonUrcProcessCgreg   },
+    { "CREG",              Cellular_CommonUrcProcessCreg    },
+    { "NORMAL POWER DOWN", _Cellular_ProcessPowerDown       },
+    { "PSM POWER DOWN",    _Cellular_ProcessPsmPowerDown    },
+    { "QIND",              _Cellular_ProcessIndication      },
+    { "QIOPEN",            _Cellular_ProcessSocketOpen      },
+    { "QIURC",             _Cellular_ProcessSocketurc       },
+    { "QMTCLOSE",          _Cellular_ProcessMqttClose       },
+    { "QMTCONN",           _Cellular_ProcessMqttConnect     },
+    { "QMTDISC",           _Cellular_ProcessMqttDisconnect  },
+    { "QMTOPEN",           _Cellular_ProcessMqttOpen        },
+    { "QMTPUB",            _Cellular_ProcessMqttPublish     },
+    { "QMTRECV",           _Cellular_ProcessMqttReceive     },
+    { "QMTSTAT",           _Cellular_ProcessMqttState       },
+    { "QMTSUB",            _Cellular_ProcessMqttSubscribe   },
+    { "QMTUNS",            _Cellular_ProcessMqttUnsubscribe },
+    { "QSIMSTAT",          _Cellular_ProcessSimstat         },
+    { "QSSLOPEN",          _Cellular_ProcessSocketOpen      },
+    { "QSSLURC",           _Cellular_ProcessSocketurc       },
+    { "RDY",               _Cellular_ProcessModemRdy        }
 };
 
 /* FreeRTOS Cellular Common Library porting interface. */
@@ -805,3 +836,710 @@ CellularPktStatus_t _Cellular_ParseSimstat( char * pInputStr,
 }
 
 /*-----------------------------------------------------------*/
+
+static CellularPktStatus_t _parseMqttOpenNextTok( const char * pToken,
+                                                    uint32_t mqttIndex,
+                                                    CellularMqttSocket_t * mqttSocket )
+{
+    int32_t mqttStatus = 0;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+
+    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &mqttStatus );
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        if( mqttStatus != 0 )
+        {
+            mqttSocket->mqttState = MQTTSTATE_ALLOCATED;
+            LogError( ( "_parseMqttOpen: MQTT Socket open failed, conn %d, status %d", mqttIndex, mqttStatus ) );
+        }
+        else
+        {
+            mqttSocket->mqttState = MQTTSTATE_OPENED;
+            LogDebug( ( "_parseMqttOpen: MQTT Socket open success, conn %d", mqttIndex ) );
+        }
+    }
+
+    /* Indicate the upper layer about the socket open status. */
+    if( mqttSocket->openCallback != NULL )
+    {
+        mqttSocket->openCallback(mqttSocket, mqttSocket->callbackContext);
+    }
+    else
+    {
+        LogError( ( "_parseMqttOpen: Socket open callback for conn %d is not set!!", mqttIndex ) );
+    }
+
+    pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+    return pktStatus;
+}
+
+static void _Cellular_ProcessMqttOpen( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pUrcStr = NULL, * pToken = NULL;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    uint8_t mqttIndex = 0;
+    int32_t tempValue = 0;
+    CellularMqttSocket_t * mqttSocket = NULL;
+
+    if( pContext == NULL )
+    {
+        pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( pInputLine == NULL )
+    {
+        pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
+    }
+    else
+    {
+        pUrcStr = pInputLine;
+        atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pUrcStr );
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            if( ( tempValue >= 0 ) &&
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+            {
+                mqttIndex = ( uint8_t ) tempValue;
+            }
+            else
+            {
+                LogError( ( "Error processing in MQTT index. token %s", pToken ) );
+                atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
+
+            if( mqttSocket != NULL )
+            {
+                atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    pktStatus = _parseMqttOpenNextTok( pToken, mqttIndex, mqttSocket );
+                }
+            }
+            else
+            {
+                pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+            }
+        }
+
+        if( atCoreStatus != CELLULAR_AT_SUCCESS )
+        {
+            pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+        }
+    }
+
+    if( pktStatus != CELLULAR_PKT_STATUS_OK )
+    {
+        LogDebug( ( "MQTT Open URC Parse failure" ) );
+    }
+}
+
+static void _Cellular_ProcessMqttClose( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pToken = NULL;
+    char * pLocalUrcStr = pInputLine;
+    int32_t tempValue = 0;
+    uint8_t mqttIndex = 0;
+    CellularMqttSocket_t * pMqttData = NULL;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+
+    atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pLocalUrcStr );
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATGetNextTok( &pLocalUrcStr, &pToken );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        if( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX )
+        {
+             mqttIndex = ( uint8_t ) tempValue;
+        }
+        else
+        {
+            LogError( ( "Error in processing MQTT Index. Token %s", pToken ) );
+            atCoreStatus = CELLULAR_AT_ERROR;
+        }
+    }
+
+    if ( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATGetNextTok( &pLocalUrcStr, &pToken );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS)
+    {
+        pMqttData = Cellular_GetMqttSocket( mqttIndex );
+
+        if( pMqttData != NULL )
+        {
+            if (tempValue < 0)
+            {
+                LogError(("Failed to close network for MQTT socket index: %d", mqttIndex));
+            }
+            else
+            {
+                pMqttData->mqttState = MQTTSTATE_ALLOCATED;
+                LogDebug( ( "Socket closed. Conn Id %d", mqttIndex ) );
+            }
+
+
+            /* Indicate the upper layer about the socket close. */
+            if( pMqttData->closeCallback != NULL )
+            {
+                pMqttData->closeCallback( pMqttData, pMqttData->callbackContext );
+            }
+            else
+            {
+                LogError( ( "_Cellular_ProcessMqttClose: Socket close callback not set!!" ) );
+            }
+        }
+        else
+        {
+            atCoreStatus = CELLULAR_AT_ERROR;
+        }
+    }
+}
+
+
+static CellularPktStatus_t _parseMqttConnectResultTok( char * pToken, uint8_t mqttIndex, CellularMqttSocket_t * mqttSocket )
+{
+    int32_t mqttStatus = 0;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+
+    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &mqttStatus );
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        switch (mqttStatus)
+        {
+        case 0:
+        {
+             LogDebug(("Successful CONNECT and ACK received"));
+             mqttSocket->mqttState = MQTTSTATE_CONNECTED;
+             break;
+        }
+        case 1:
+        {
+            LogWarn(("Connect retransmission"));
+            mqttSocket->mqttState = MQTTSTATE_CONNECTING;
+            break;
+        }
+        case 2:
+        default:
+        {
+            LogError(("Failed to send CONNECT packet"));
+            mqttSocket->mqttState = MQTTSTATE_DISCONNECTED;
+        }
+        }
+    }
+
+    /* Indicate the upper layer about the socket open status. */
+    if( mqttSocket->connectCallback != NULL )
+    {
+        mqttSocket->connectCallback(mqttSocket, mqttSocket->callbackContext);
+    }
+    else
+    {
+        LogError( ( "_parseMqttConnect: Socket connect callback for conn %d is not set!!", mqttIndex ) );
+    }
+
+    pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+    return pktStatus;
+}
+
+static void _Cellular_ProcessMqttConnect( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pUrcStr = NULL, * pToken = NULL;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    uint8_t mqttIndex = 0;
+    int32_t tempValue = 0;
+    CellularMqttSocket_t * mqttSocket = NULL;
+
+    if( pContext == NULL )
+        {
+            pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+        }
+        else if( pInputLine == NULL )
+        {
+            pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
+        }
+        else
+        {
+            pUrcStr = pInputLine;
+            atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pUrcStr );
+
+            if( atCoreStatus == CELLULAR_AT_SUCCESS )
+            {
+                atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+            }
+
+            if( atCoreStatus == CELLULAR_AT_SUCCESS )
+            {
+                atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+            }
+
+            if( atCoreStatus == CELLULAR_AT_SUCCESS )
+            {
+                if( ( tempValue >= 0 ) &&
+                    ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+                {
+                    mqttIndex = ( uint8_t ) tempValue;
+                }
+                else
+                {
+                    LogError( ( "Error processing in MQTT index. token %s", pToken ) );
+                    atCoreStatus = CELLULAR_AT_ERROR;
+                }
+            }
+
+            if( atCoreStatus == CELLULAR_AT_SUCCESS )
+            {
+                mqttSocket = Cellular_GetMqttSocket( mqttIndex );
+
+                if( mqttSocket != NULL )
+                {
+                    atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+
+                    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                    {
+                        pktStatus = _parseMqttConnectResultTok( pToken, mqttIndex, mqttSocket );
+                    }
+                }
+                else
+                {
+                    pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+                }
+            }
+
+            if( atCoreStatus != CELLULAR_AT_SUCCESS )
+            {
+                pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+            }
+        }
+
+        if( pktStatus != CELLULAR_PKT_STATUS_OK )
+        {
+            LogDebug( ( "MQTT Connect URC Parse failure" ) );
+        }
+}
+
+static void _Cellular_ProcessMqttDisconnect( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pToken = NULL;
+    char * pLocalUrcStr = pInputLine;
+    int32_t tempValue = 0;
+    uint8_t mqttIndex = 0;
+    CellularMqttSocket_t * pMqttData = NULL;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+
+    atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pLocalUrcStr );
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATGetNextTok( &pLocalUrcStr, &pToken );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        if( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX )
+        {
+             mqttIndex = ( uint8_t ) tempValue;
+        }
+        else
+        {
+            LogError( ( "Error in processing MQTT Index. Token %s", pToken ) );
+            atCoreStatus = CELLULAR_AT_ERROR;
+        }
+    }
+
+    if ( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATGetNextTok( &pLocalUrcStr, &pToken );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS )
+    {
+        atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+    }
+
+    if( atCoreStatus == CELLULAR_AT_SUCCESS)
+    {
+        pMqttData = Cellular_GetMqttSocket( mqttIndex );
+
+        if( pMqttData != NULL )
+        {
+            if (tempValue < 0)
+            {
+                LogError(("Failed to disconnect for MQTT socket index: %d", mqttIndex));
+            }
+            else
+            {
+                pMqttData->mqttState = MQTTSTATE_DISCONNECTED;
+                LogDebug( ( "Socket disconnected. Conn Id %d", mqttIndex ) );
+            }
+
+
+            /* Indicate the upper layer about the socket close. */
+            if( pMqttData->disconnectCallback != NULL )
+            {
+                pMqttData->disconnectCallback( pMqttData, pMqttData->callbackContext );
+            }
+            else
+            {
+                LogError( ( "_Cellular_ProcessMqttDisconnect: Socket close callback not set!!" ) );
+            }
+        }
+        else
+        {
+            atCoreStatus = CELLULAR_AT_ERROR;
+        }
+    }
+}
+
+static CellularPktStatus_t _parseMqttOutgoingResponseResultTok(CellularUrcMqttEvent_t event, char * pToken,
+                                                      uint8_t mqttIndex, CellularMqttSocket_t *  mqttSocket )
+{
+    int32_t temp = 0;
+    CellularMqttOutgoingResult_t result = CELLULAR_MQTT_OUTGOING_FAILURE;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+
+    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &temp );
+
+    if ( ( atCoreStatus == CELLULAR_AT_SUCCESS ) &&
+         ( temp >= 0 ) &&
+         ( temp <= (int32_t)CELLULAR_MQTT_OUTGOING_FAILURE) )
+    {
+        result = (CellularMqttOutgoingResult_t)temp;
+    }
+
+    switch (result)
+    {
+        case CELLULAR_MQTT_OUTGOING_SUCCESS:
+        {
+             LogDebug(("Successful packet send and ACK received"));
+             break;
+        }
+        case CELLULAR_MQTT_OUTGOING_RETRY:
+        {
+            LogWarn(("Packet retransmission"));
+            break;
+        }
+        case CELLULAR_MQTT_OUTGOING_FAILURE:
+        default:
+        {
+            LogError(("Failed to send packet"));
+        }
+    }
+
+    if( mqttSocket->outgoingCallback != NULL )
+    {
+        mqttSocket->outgoingCallback(event, (uint8_t)result, mqttSocket, mqttSocket->callbackContext);
+    }
+    else
+    {
+        LogError( ( "_parseMqttOutgoingResponseResult: Socket callback for conn %d is not set!!", mqttIndex ) );
+    }
+
+    pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+    return pktStatus;
+}
+
+static void _processMqttOutgoingResponse(CellularUrcMqttEvent_t event, CellularContext_t * pContext, char * pInputLine)
+{
+    char * pUrcStr = NULL, * pToken = NULL;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    uint8_t mqttIndex = 0;
+    int32_t tempValue = 0;
+    CellularMqttSocket_t * mqttSocket = NULL;
+
+    if( pContext == NULL )
+    {
+        pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( pInputLine == NULL )
+    {
+        pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
+    }
+    else
+    {
+        pUrcStr = pInputLine;
+        atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pUrcStr );
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            if( ( tempValue >= 0 ) &&
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+            {
+                mqttIndex = ( uint8_t ) tempValue;
+            }
+            else
+            {
+                LogError( ( "Error processing in MQTT index. token %s", pToken ) );
+                atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
+
+            if( mqttSocket != NULL )
+            {
+                atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+                    LogDebug( ( "Response received for packet with ID %d", tempValue));
+                }
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS)
+                {
+                    atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+                }
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    pktStatus = _parseMqttOutgoingResponseResultTok( event, pToken, mqttIndex, mqttSocket );
+                }
+            }
+            else
+            {
+                pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+            }
+        }
+
+        if( atCoreStatus != CELLULAR_AT_SUCCESS )
+        {
+            pktStatus = _Cellular_TranslateAtCoreStatus( atCoreStatus );
+        }
+    }
+
+    if( pktStatus != CELLULAR_PKT_STATUS_OK )
+    {
+        LogDebug( ( "MQTT Outgoing Response URC Parse failure" ) );
+    }
+}
+
+static void _Cellular_ProcessMqttPublish( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    _processMqttOutgoingResponse(CELLULAR_URC_MQTT_PUBLISH, pContext, pInputLine);
+}
+static void _Cellular_ProcessMqttSubscribe( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    _processMqttOutgoingResponse(CELLULAR_URC_MQTT_SUBSCRIBE, pContext, pInputLine);
+}
+static void _Cellular_ProcessMqttUnsubscribe( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    _processMqttOutgoingResponse(CELLULAR_URC_MQTT_UNSUBSCRIBE, pContext, pInputLine);
+}
+
+static void _Cellular_ProcessMqttState( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pUrcStr = NULL, * pToken = NULL;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    uint8_t mqttIndex = 0;
+    uint8_t status = 0;
+    int32_t tempValue = 0;
+    CellularMqttSocket_t * mqttSocket = NULL;
+
+    if( pContext == NULL )
+    {
+        LogError(("Invalid cellular context"));
+    }
+    else if( pInputLine == NULL )
+    {
+        LogError(("No input data to process"));
+    }
+    else
+    {
+        pUrcStr = pInputLine;
+        atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pUrcStr );
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            if( ( tempValue >= 0 ) &&
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+            {
+               mqttIndex = ( uint8_t ) tempValue;
+            }
+            else
+            {
+               LogError( ( "Error processing in MQTT index. token %s", pToken ) );
+               atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
+
+            if( mqttSocket != NULL )
+            {
+                atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+                }
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    status = (uint8_t)tempValue;
+                    mqttSocket->mqttState = MQTTSTATE_DISCONNECTED;
+                    mqttSocket->stateCallback(status, mqttSocket, mqttSocket->callbackContext);
+                }
+            }
+            else
+            {
+                atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+    }
+
+    LogDebug(("State URC completed with status %d", atCoreStatus));
+}
+
+static void _Cellular_ProcessMqttReceive( CellularContext_t * pContext,
+                                         char * pInputLine )
+{
+    char * pUrcStr = NULL, * pToken = NULL;
+    CellularATError_t atCoreStatus = CELLULAR_AT_SUCCESS;
+    uint8_t mqttIndex = 0;
+    uint8_t bufferIndex = 0;
+    int32_t tempValue = 0;
+    CellularMqttSocket_t * mqttSocket = NULL;
+
+    if( pContext == NULL )
+    {
+        LogError(("Invalid cellular context"));
+    }
+    else if( pInputLine == NULL )
+    {
+        LogError(("No input data to process"));
+    }
+    else
+    {
+        pUrcStr = pInputLine;
+        atCoreStatus = Cellular_ATRemoveAllWhiteSpaces( pUrcStr );
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            if( ( tempValue >= 0 ) &&
+                ( tempValue < ( int32_t ) CELLULAR_NUM_SOCKET_MAX ) )
+            {
+               mqttIndex = ( uint8_t ) tempValue;
+            }
+            else
+            {
+               LogError( ( "Error processing in MQTT index. token %s", pToken ) );
+               atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+
+        if( atCoreStatus == CELLULAR_AT_SUCCESS )
+        {
+            mqttSocket = Cellular_GetMqttSocket( mqttIndex );
+
+            if( mqttSocket != NULL )
+            {
+                atCoreStatus = Cellular_ATGetNextTok( &pUrcStr, &pToken );
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
+                }
+
+                if( atCoreStatus == CELLULAR_AT_SUCCESS )
+                {
+                    LogDebug(("Incoming publish saved in buffer %d", tempValue));
+                    bufferIndex = (uint8_t)tempValue;
+                    mqttSocket->receiveCallback(bufferIndex, mqttSocket, mqttSocket->callbackContext);
+                }
+            }
+            else
+            {
+                atCoreStatus = CELLULAR_AT_ERROR;
+            }
+        }
+    }
+
+    LogDebug(("Receive URC completed with status %d", atCoreStatus));
+}
