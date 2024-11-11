@@ -105,34 +105,34 @@ static CellularError_t sendAtCommandWithRetryTimeout( CellularContext_t * pConte
 
 /*-----------------------------------------------------------*/
 
-static bool appendRatList( char * pRatList,
-                           CellularRat_t cellularRat )
-{
-    bool retValue = true;
-
-    /* Configure RAT Searching Sequence to default radio access technology. */
-    switch( cellularRat )
-    {
-        case CELLULAR_RAT_CATM1:
-            strcat( pRatList, "02" );
-            break;
-
-        case CELLULAR_RAT_NBIOT:
-            strcat( pRatList, "03" );
-            break;
-
-        case CELLULAR_RAT_GSM:
-            strcat( pRatList, "01" );
-            break;
-
-        default:
-            /* Configure RAT Searching Sequence to automatic. */
-            retValue = false;
-            break;
-    }
-
-    return retValue;
-}
+//static bool appendRatList( char * pRatList,
+//                           CellularRat_t cellularRat )
+//{
+//    bool retValue = true;
+//
+//    /* Configure RAT Searching Sequence to default radio access technology. */
+//    switch( cellularRat )
+//    {
+//        case CELLULAR_RAT_CATM1:
+//            strcat( pRatList, "02" );
+//            break;
+//
+//        case CELLULAR_RAT_NBIOT:
+//            strcat( pRatList, "03" );
+//            break;
+//
+//        case CELLULAR_RAT_GSM:
+//            strcat( pRatList, "01" );
+//            break;
+//
+//        default:
+//            /* Configure RAT Searching Sequence to automatic. */
+//            retValue = false;
+//            break;
+//    }
+//
+//    return retValue;
+//}
 
 /*-----------------------------------------------------------*/
 
@@ -233,8 +233,8 @@ CellularError_t Cellular_ModuleEnableUE( CellularContext_t * pContext )
         NULL,
         0
     };
-    char ratSelectCmd[ BG96_NWSCANSEQ_CMD_MAX_SIZE ] = "AT+QCFG=\"nwscanseq\",";
-    bool retAppendRat = true;
+//    char ratSelectCmd[ BG96_NWSCANSEQ_CMD_MAX_SIZE ] = "AT+QCFG=\"nwscanseq\",";
+//    bool retAppendRat = true;
 
     if( pContext != NULL )
     {
@@ -269,12 +269,12 @@ CellularError_t Cellular_ModuleEnableUE( CellularContext_t * pContext )
             cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
         }
 
-        if( cellularStatus == CELLULAR_SUCCESS )
-        {
-            /* Configure Band configuration to all bands. */
-            atReqGetNoResult.pAtCmd = "AT+QCFG=\"band\",f,400a0e189f,a0e189f";
-            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
-        }
+//        if( cellularStatus == CELLULAR_SUCCESS )
+//        {
+//            /* Configure Band configuration to all bands. */
+//            atReqGetNoResult.pAtCmd = "AT+QCFG=\"band\",f,400a0e189f,a0e189f";
+//            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
+//        }
 
         if( cellularStatus == CELLULAR_SUCCESS )
         {
@@ -283,12 +283,12 @@ CellularError_t Cellular_ModuleEnableUE( CellularContext_t * pContext )
             cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
         }
 
-        if( cellularStatus == CELLULAR_SUCCESS )
-        {
-            /* Configure Network Category to be Searched under LTE RAT to LTE Cat M1 and Cat NB1. */
-            atReqGetNoResult.pAtCmd = "AT+QCFG=\"iotopmode\",2,1";
-            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
-        }
+//        if( cellularStatus == CELLULAR_SUCCESS )
+//        {
+//            /* Configure Network Category to be Searched under LTE RAT to LTE Cat M1 and Cat NB1. */
+//            atReqGetNoResult.pAtCmd = "AT+QCFG=\"iotopmode\",2,1";
+//            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
+//        }
 
         if( cellularStatus == CELLULAR_SUCCESS )
         {
@@ -297,25 +297,25 @@ CellularError_t Cellular_ModuleEnableUE( CellularContext_t * pContext )
             cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
         }
 
-        if( cellularStatus == CELLULAR_SUCCESS )
-        {
-            retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT );
-            configASSERT( retAppendRat == true );
-
-            #ifdef CELLULAR_CONFIG_DEFAULT_RAT_2
-                retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT_2 );
-                configASSERT( retAppendRat == true );
-            #endif
-
-            #ifdef CELLULAR_CONFIG_DEFAULT_RAT_3
-                retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT_3 );
-                configASSERT( retAppendRat == true );
-            #endif
-
-            strcat( ratSelectCmd, ",1" ); /* Take effect immediately. */
-            atReqGetNoResult.pAtCmd = ratSelectCmd;
-            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
-        }
+//        if( cellularStatus == CELLULAR_SUCCESS )
+//        {
+//            retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT );
+//            configASSERT( retAppendRat == true );
+//
+//            #ifdef CELLULAR_CONFIG_DEFAULT_RAT_2
+//                retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT_2 );
+//                configASSERT( retAppendRat == true );
+//            #endif
+//
+//            #ifdef CELLULAR_CONFIG_DEFAULT_RAT_3
+//                retAppendRat = appendRatList( ratSelectCmd, CELLULAR_CONFIG_DEFAULT_RAT_3 );
+//                configASSERT( retAppendRat == true );
+//            #endif
+//
+//            strcat( ratSelectCmd, ",1" ); /* Take effect immediately. */
+//            atReqGetNoResult.pAtCmd = ratSelectCmd;
+//            cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
+//        }
 
         if( cellularStatus == CELLULAR_SUCCESS )
         {

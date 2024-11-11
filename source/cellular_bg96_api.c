@@ -4033,6 +4033,41 @@ CellularError_t Cellular_MqttConfigureReceiveMode(CellularHandle_t cellularHandl
     return cellularStatus;
 }
 
+CellularError_t Cellular_MqttConfigureSendMode(CellularHandle_t cellularHandle,
+        uint8_t mqttContextId,
+        bool message_not_in_urc)
+{
+    CellularContext_t * pContext = ( CellularContext_t * ) cellularHandle;
+    CellularError_t cellularStatus = CELLULAR_SUCCESS;
+    CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
+    char atCommandBuffer[2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE] = {0};
+
+    CellularAtReq_t atReqConfigureSslContext =
+    {
+        atCommandBuffer,
+        CELLULAR_AT_NO_RESULT,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    };
+
+    cellularStatus = _Cellular_CheckLibraryStatus( pContext );
+
+    if( cellularStatus == CELLULAR_SUCCESS )
+    {
+        /* The return value of snprintf is not used.
+         * The max length of the string is fixed and checked offline. */
+        /* coverity[misra_c_2012_rule_21_6_violation]. */
+        ( void ) snprintf(atCommandBuffer, 2*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "AT+QMTCFG=\"send/mode\",%d,%d",
+                mqttContextId, (uint8_t)message_not_in_urc);
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqConfigureSslContext );
+        cellularStatus = _Cellular_TranslatePktStatus( pktStatus );
+    }
+
+    return cellularStatus;
+}
+
 CellularError_t Cellular_MqttOpen(CellularHandle_t cellularHandle,
         uint8_t mqttContextId,
         const char * endpoint,
@@ -4251,7 +4286,7 @@ CellularError_t Cellular_MqttPublish(CellularHandle_t cellularHandle,
         if( messageLength <= ( uint32_t ) CELLULAR_MQTT_MAX_SEND_DATA_LEN )
         {
             ( void ) snprintf( cmdBuf, 6*CELLULAR_AT_CMD_TYPICAL_MAX_SIZE, "%s%d,%d,%d,%d,\"%s\",%ld",
-                               "AT+QMTPUB=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
+                               "AT+QMTPUBEX=", mqttContextId, messageId, (uint8_t)qos, retain, topic, atDataReqMqttPublish.dataLen);
             pktStatus = _Cellular_AtcmdDataSend( pContext, atReqSocketSend, atDataReqMqttPublish,
                                                  socketSendDataPrefix, NULL,
                                                  PACKET_REQ_TIMEOUT_MS, sendTimeout, 0U );
