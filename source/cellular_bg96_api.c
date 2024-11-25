@@ -278,7 +278,8 @@ static bool _parseSignalQuality( char * pQcsqPayload,
     {
         if( ( strcmp( pToken, "GSM" ) != 0 ) &&
             ( strcmp( pToken, "CAT-M1" ) != 0 ) &&
-            ( strcmp( pToken, "CAT-NB1" ) != 0 ) )
+            ( strcmp( pToken, "CAT-NB1" ) != 0 ) &&
+            ( strcmp( pToken, "LTE" ) != 0 ) )
         {
             parseStatus = false;
         }
@@ -3216,10 +3217,8 @@ CellularError_t Cellular_GetSimCardInfo( CellularHandle_t cellularHandle,
             pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqGetHplmn );
         }
 
-        if( pktStatus == CELLULAR_PKT_STATUS_OK )
-        {
-            pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqGetIccid );
-        }
+        // Going to skip pktStatus check on Hplmn since it fails for some sims
+        pktStatus = _Cellular_AtcmdRequestWithCallback( pContext, atReqGetIccid );
 
         if( pktStatus != CELLULAR_PKT_STATUS_OK )
         {

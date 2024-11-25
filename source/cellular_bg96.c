@@ -279,7 +279,7 @@ CellularError_t Cellular_ModuleEnableUE( CellularContext_t * pContext )
         if( cellularStatus == CELLULAR_SUCCESS )
         {
             /* Configure RAT(s) to be Searched to Automatic. */
-            atReqGetNoResult.pAtCmd = "AT+QCFG=\"nwscanmode\",0,1";
+            atReqGetNoResult.pAtCmd = "AT+QCFG=\"nwscanmode\",3,1";
             cellularStatus = sendAtCommandWithRetryTimeout( pContext, &atReqGetNoResult );
         }
 
