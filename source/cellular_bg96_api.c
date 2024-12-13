@@ -114,6 +114,7 @@
 #define MQTT_DATA_PREFIX_STRING_LENGTH              ( 9U )
 
 #define CELLULAR_MQTT_MAX_SEND_DATA_LEN             ( 4096U )
+#define CELLULAR_MQTT_MAX_RECV_DATA_LEN             ( 3000U )
 /*-----------------------------------------------------------*/
 
 /**
@@ -4463,7 +4464,7 @@ static CellularPktStatus_t _Cellular_RecvMqttData( CellularContext_t * pContext,
         if ( atCoreStatus == CELLULAR_AT_SUCCESS )
         {
             atCoreStatus = Cellular_ATStrtoi( pToken, 10, &tempValue );
-            if( ( tempValue >= ( int32_t ) 0 ) && ( tempValue < ( ( int32_t ) CELLULAR_MAX_RECV_DATA_LEN ) ) )
+            if( ( tempValue >= ( int32_t ) 0 ) && ( tempValue < ( ( int32_t ) CELLULAR_MQTT_MAX_RECV_DATA_LEN ) ) )
             {
                 *pDataRecv->pDataLen = ( uint32_t ) tempValue;
             }
@@ -4530,7 +4531,7 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
                     if ( atResult == CELLULAR_AT_SUCCESS )
                     {
                         if( ( tempValue >= 0 ) &&
-                           ( tempValue < ( int32_t ) CELLULAR_MAX_RECV_DATA_LEN ) )
+                           ( tempValue < ( int32_t ) CELLULAR_MQTT_MAX_RECV_DATA_LEN ) )
                         {
                            *pDataLength = ( uint32_t ) tempValue + 2; //Taking into account the quotes
                            pDataStart[i-1] = '\0';
@@ -4541,7 +4542,7 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
                         {
                            *pDataLength = 0;
                            pDataStart = NULL;
-                           LogError( ( "QMTRECV data larger than CELLULAR_MAX_RECV_DATA_LEN" ) );
+                           LogError( ( "QMTRECV data larger than CELLULAR_MQTT_MAX_RECV_DATA_LEN: %ld", tempValue ) );
                         }
                     }
                     else
