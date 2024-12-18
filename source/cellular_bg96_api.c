@@ -112,9 +112,6 @@
 
 #define MQTT_DATA_PREFIX_STRING                     "+QMTRECV:"
 #define MQTT_DATA_PREFIX_STRING_LENGTH              ( 9U )
-
-#define CELLULAR_MQTT_MAX_SEND_DATA_LEN             ( 4096U )
-#define CELLULAR_MQTT_MAX_RECV_DATA_LEN             ( 3000U )
 /*-----------------------------------------------------------*/
 
 /**
