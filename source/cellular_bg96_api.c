@@ -4421,10 +4421,23 @@ static CellularPktStatus_t _Cellular_RecvMqttData( CellularContext_t * pContext,
         LogError( ( "Receive Data: invalid context" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
     }
-    else if( ( pAtResp == NULL ) || ( pAtResp->pItm == NULL ) || ( pAtResp->pItm->pLine == NULL ) )
+    else if( ( pAtResp == NULL ) )
     {
         LogError( ( "Receive Data: response is invalid" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( ( pAtResp->pItm == NULL ) || ( pAtResp->pItm->pLine == NULL ) )
+    {
+        // Check to see if we received OK - if we did then it's an empty response
+        if ( pAtResp->status == true )
+        {
+            LogDebug( ( "No data in QMTRECV buffer") );
+        }
+        else
+        {
+            LogError( ( "Receive Data: response is invalid" ) );
+            pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+        }
     }
     else if( ( pDataRecv == NULL ) || ( pDataRecv->pData == NULL ) || ( pDataRecv->pDataLen == NULL ) )
     {
