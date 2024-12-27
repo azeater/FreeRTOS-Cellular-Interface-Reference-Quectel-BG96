@@ -4511,7 +4511,7 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
     const char delimiter = ',';
     uint8_t delimiterCount = 0;
 
-    ( void ) pCallbackContext;
+    ( void )pCallbackContext;
 
     if( ( pLine == NULL ) || ( ppDataStart == NULL ) || ( pDataLength == NULL ) )
     {
@@ -4572,10 +4572,19 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
 
             if ( i == lineLength)
             {
-                LogError( ( "Could not find all the fields in QMTRECV" ) );
+
+                if (delimiterCount == 1)
+                {
+                    LogInfo( ( "Received QMTRECV notification while reading buffers" ) );
+                }
+                else
+                {
+                    LogError( ( "Could not find all the fields in QMTRECV" ) );
+                    pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
+                }
                 *pDataLength = 0;
                 pDataStart = NULL;
-                pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
+
             }
         }
 
@@ -4633,7 +4642,7 @@ CellularError_t Cellular_MqttReadIncomingPublish( CellularHandle_t cellularHandl
     {
         ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE,
                            "%s%d,%d", "AT+QMTRECV=", mqttContextId, mqttBufferIndex );
-        pktStatus = _Cellular_TimeoutAtcmdDataRecvRequestWithCallback( pContext, atReqMqttRecv, recvTimeout, mqttRecvDataPrefix, NULL );
+        pktStatus = _Cellular_TimeoutAtcmdDataRecvRequestWithCallback( pContext, atReqMqttRecv, recvTimeout, mqttRecvDataPrefix, NULL);
 
         if( pktStatus != CELLULAR_PKT_STATUS_OK )
         {
