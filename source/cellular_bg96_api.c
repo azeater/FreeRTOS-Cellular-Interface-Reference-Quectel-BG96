@@ -4421,10 +4421,23 @@ static CellularPktStatus_t _Cellular_RecvMqttData( CellularContext_t * pContext,
         LogError( ( "Receive Data: invalid context" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
     }
-    else if( ( pAtResp == NULL ) || ( pAtResp->pItm == NULL ) || ( pAtResp->pItm->pLine == NULL ) )
+    else if( ( pAtResp == NULL ) )
     {
         LogError( ( "Receive Data: response is invalid" ) );
         pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+    }
+    else if( ( pAtResp->pItm == NULL ) || ( pAtResp->pItm->pLine == NULL ) )
+    {
+        // Check to see if we received OK - if we did then it's an empty response
+        if ( pAtResp->status == true )
+        {
+            LogDebug( ( "No data in QMTRECV buffer") );
+        }
+        else
+        {
+            LogError( ( "Receive Data: response is invalid" ) );
+            pktStatus = CELLULAR_PKT_STATUS_FAILURE;
+        }
     }
     else if( ( pDataRecv == NULL ) || ( pDataRecv->pData == NULL ) || ( pDataRecv->pDataLen == NULL ) )
     {
@@ -4498,15 +4511,27 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
     const char delimiter = ',';
     uint8_t delimiterCount = 0;
 
-    ( void ) pCallbackContext;
+    /* Use the custom context, which is initialized to false, to store the parsed result. */
+    bool * pParsed =  ( bool * ) pCallbackContext;
+
 
     if( ( pLine == NULL ) || ( ppDataStart == NULL ) || ( pDataLength == NULL ) )
     {
         pktStatus = CELLULAR_PKT_STATUS_BAD_PARAM;
     }
+    else if ( *pParsed == true )
+    {
+        /* We've already parsed the message so no need to continue */
+        LogInfo(("Received OK already so no need to continue"));
+        pktStatus = CELLULAR_PKT_STATUS_PREFIX_MISMATCH;
+    }
     else
     {
-        if ( strncmp( pLine, MQTT_DATA_PREFIX_STRING, MQTT_DATA_PREFIX_STRING_LENGTH ) == 0)
+        if( strncmp( pLine, "OK", strlen("OK") ) == 0 )
+        {
+            *pParsed = true;
+        }
+        else if ( strncmp( pLine, MQTT_DATA_PREFIX_STRING, MQTT_DATA_PREFIX_STRING_LENGTH ) == 0)
         {
             pDataStart = pLine;
             char dataSizeSubString[5] = "\0";
@@ -4559,10 +4584,12 @@ static CellularPktStatus_t mqttRecvDataPrefix( void * pCallbackContext,
 
             if ( i == lineLength)
             {
+
                 LogError( ( "Could not find all the fields in QMTRECV" ) );
+                pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
                 *pDataLength = 0;
                 pDataStart = NULL;
-                pktStatus = CELLULAR_PKT_STATUS_SIZE_MISMATCH;
+
             }
         }
 
@@ -4586,6 +4613,8 @@ CellularError_t Cellular_MqttReadIncomingPublish( CellularHandle_t cellularHandl
     CellularPktStatus_t pktStatus = CELLULAR_PKT_STATUS_OK;
     char cmdBuf[ CELLULAR_AT_CMD_TYPICAL_MAX_SIZE ] = { '\0' };
     uint32_t recvTimeout = DATA_READ_TIMEOUT_MS;
+    bool parseContext = false;
+
     _mqttDataRecv_t dataRecv =
     {
         pReceivedDataLength,
@@ -4620,7 +4649,7 @@ CellularError_t Cellular_MqttReadIncomingPublish( CellularHandle_t cellularHandl
     {
         ( void ) snprintf( cmdBuf, CELLULAR_AT_CMD_TYPICAL_MAX_SIZE,
                            "%s%d,%d", "AT+QMTRECV=", mqttContextId, mqttBufferIndex );
-        pktStatus = _Cellular_TimeoutAtcmdDataRecvRequestWithCallback( pContext, atReqMqttRecv, recvTimeout, mqttRecvDataPrefix, NULL );
+        pktStatus = _Cellular_TimeoutAtcmdDataRecvRequestWithCallback( pContext, atReqMqttRecv, recvTimeout, mqttRecvDataPrefix, (void *)&parseContext);
 
         if( pktStatus != CELLULAR_PKT_STATUS_OK )
         {
